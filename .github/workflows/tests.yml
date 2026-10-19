@@ -1,0 +1,23 @@
+# Положите файл в .github/workflows/tests.yml
+name: tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Установить busybox и shellcheck
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y busybox-static shellcheck
+
+      - name: Тесты (dash, bash --posix, busybox ash)
+        run: sh ./run_tests.sh
+
+      - name: shellcheck (ошибки и предупреждения)
+        run: shellcheck -s dash -S warning tsi.sh run_tests.sh tsi-diag.sh
