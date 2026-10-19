@@ -108,6 +108,9 @@ A53=$(printf 'A%.0s' $(seq 1 53))
 LB="$FIX/tokisaki-galaxy.github.io/luci-app-tailscale-community/all"; mkdir -p "$LB"
 printf 'untrusted comment: usign public key\nRWQ%s' "$A53" >"$LB/key-build.pub"
 printf -- '-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE\n-----END PUBLIC KEY-----\n' >"$LB/public-key.pem"
+# NEW: копии по raw-пути, там их ждёт код
+cp "$LB/key-build.pub"  "$LB_RAW/key-build.pub"
+cp "$LB/public-key.pem" "$LB_RAW/public-key.pem"
 RB="$FIX/raw.githubusercontent.com/gunanovo/openwrt-tailscale/refs/heads/feed/mipsel_24kc"; mkdir -p "$RB"
 mkelf() { printf "\\177ELF\\00$2\\00$3\\001\\000\\000\\000\\000\\000\\000\\000\\000\\000\\002\\000$4" >"$1"; }
 mkipk() { # OUT

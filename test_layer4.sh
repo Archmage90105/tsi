@@ -3,6 +3,7 @@
 # Запуск: sh test_layer4.sh   (TSI_TEST_SH="busybox ash" - чем запускать драйверы)
 HERE=$(cd "$(dirname "$0")" && pwd)
 TSI_NO_MAIN=1
+export TSI_NO_MAIN
 . "$HERE/tsi.sh"
 SH_UNDER_TEST=${TSI_TEST_SH:-sh}
 GTAR=/usr/bin/tar
@@ -95,6 +96,9 @@ FB="$FIX/gunanovo.github.io/openwrt-tailscale"; RB="$FIX/raw.githubusercontent.c
 mkdir -p "$FB/mipsel_24kc" "$FB/aarch64_cortex-a53" "$RB/mipsel_24kc"
 printf 'untrusted comment: usign public key\nRWQ%s\n' "$A53" >"$FB/key-build.pub"
 printf -- '-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE\n-----END PUBLIC KEY-----\n' >"$FB/key-build.rsa.pub"
+# NEW: те же ключи по raw-пути (там их ждёт текущий код)
+cp "$FB/key-build.pub"      "$RB/key-build.pub"
+cp "$FB/key-build.rsa.pub"  "$RB/key-build.rsa.pub"
 printf 'index-bytes' >"$FB/mipsel_24kc/Packages.gz"
 printf 'index-bytes' >"$FB/aarch64_cortex-a53/packages.adb"
 mkelf() { printf "\\177ELF\\00$2\\00$3\\001\\000\\000\\000\\000\\000\\000\\000\\000\\000\\002\\000$4" >"$1"; }

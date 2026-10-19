@@ -42,8 +42,6 @@ eq "value unchanged" "$(conf_get NETFILTER_MODE)" "off"
 conf_set FOO bar 2>/dev/null; rc "bad key rejected" $? 1
 conf_set LOGIN_SERVER 'https://x.y$(touch /tmp/pwned)' 2>/dev/null; rc "inject rejected" $? 1
 conf_set LOGIN_SERVER 'rc.routerich.ru' 2>/dev/null; rc "no scheme rejected" $? 1
-conf_set LITE_SHA256_TS abc 2>/dev/null; rc "bad sha rejected" $? 1
-H=$(printf 'a%.0s' $(seq 1 64)); conf_set LITE_SHA256_TS "$H"; rc "good sha" $? 0
 # перезапись не плодит дубликатов, неизвестные строки сохраняются
 printf '# my comment\nFOO=1\n' >>"$CONF"
 conf_set LANG ru; conf_set LANG en

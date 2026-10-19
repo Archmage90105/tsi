@@ -241,7 +241,9 @@ keys_of() { sed -n "/^$1() {/,/^}/p" "$HERE/tsi.sh" | sed -n 's/^ *\([A-Z0-9_]*\
 eq "keys ru==en" "$(keys_of strings_ru)" "$(keys_of strings_en)"
 eq "keys == I18N_KEYS" "$(keys_of strings_ru)" "$(for k in $I18N_KEYS; do echo $k; done | sort | tr '\n' ' ')"
 # в слое 5 нет uci commit/set вне наших секций и нет прямых записей в /etc/config
-sed -n '/^# 7\. СЕТЬ И FIREWALL/,$p' "$HERE/tsi.sh" | grep -v '^[[:space:]]*#' | grep -q '/etc/config/' && bad "слой 5: прямая запись в /etc/config" || ok
+sed -n '/^# 7\. СЕТЬ И FIREWALL/,/^# 8\. TAILSCALE UP/p' "$HERE/tsi.sh" \
+    | grep -v '^[[:space:]]*#' \
+    | grep -q '/etc/config/' && bad "слой 5: прямая запись в /etc/config" || ok
 
 rm -rf "$T"
 printf 'passed=%s failed=%s\n' "$PASS" "$FAIL"

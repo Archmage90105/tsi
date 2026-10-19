@@ -26,7 +26,8 @@ reset_log() { : >"$MOCK_LOG"; }
 BASEPATH=$PATH
 mkdir -p "$T/tools" "$T/usignbin" "$T/m_opkg" "$T/m_apk" "$T/m_both" "$T/m_none" "$T/fix" "$T/initd"
 MOCK_LOG="$T/calls.log"; FIX="$T/fix"
-export MOCK_LOG FIX MOCK_INSTALLED MOCK_UPDATE_FAIL MOCK_SIM_FAIL MOCK_IP MOCK_UCI_OUT
+MOCK_STATE="$T/pinned"
+export MOCK_LOG FIX MOCK_STATE MOCK_INSTALLED MOCK_UPDATE_FAIL MOCK_SIM_FAIL MOCK_IP MOCK_UCI_OUT
 
 cat >"$T/m_opkg/opkg" <<'M'
 #!/bin/sh
@@ -46,7 +47,8 @@ case "$1" in
   info) case " $MOCK_INSTALLED " in *" $3 "*) exit 0;; *) exit 1;; esac ;;
   list) case " $MOCK_INSTALLED " in *" $3 "*) echo "$3-1.2.3-r0 x86_64 {$3} (BSD-3-Clause) [installed]";; esac ;;
   search) [ "$3" = tailscale ] && echo "tailscale-1.2.3-r0" ;;
-  upgrade) [ -n "$MOCK_SIM_FAIL" ] && exit 1 ;;
+  add) case "$2" in *=*) : >"$MOCK_STATE";; tailscale) [ $# -eq 2 ] && rm -f "$MOCK_STATE";; esac ;;
+  upgrade) case "$MOCK_SIM_FAIL" in always) exit 1;; pinned) [ -f "$MOCK_STATE" ] && exit 1;; esac ;;
   update) [ -n "$MOCK_UPDATE_FAIL" ] && exit 1 ;;
 esac
 exit 0
@@ -149,6 +151,10 @@ chk_e mipsle 1 1 '\010\000'; chk_e mips 1 2 '\000\010'
 chk_e mips64 2 2 '\000\010'; chk_e mips64le 2 1 '\010\000'
 chk_e arm64 2 1 '\267\000'; chk_e amd64 2 1 '\076\000'; chk_e arm 1 1 '\050\000'
 chk_e riscv64 2 1 '\363\000'; chk_e loong64 2 1 '\002\001'; chk_e 386 1 1 '\003\000'
+mkelf "$T/elf" 1 1 '\363\000'; _arch_from_elf "$T/elf" >/dev/null; rc "riscv32 отвергнут" $? 1
+mkelf "$T/elf" 1 1 '\002\001'; _arch_from_elf "$T/elf" >/dev/null; rc "loong32 отвергнут" $? 1
+mkelf "$T/elf" 1 1 '\076\000'; _arch_from_elf "$T/elf" >/dev/null; rc "x32 (amd64 class32) отвергнут" $? 1
+mkelf "$T/elf" 2 1 '\050\000'; _arch_from_elf "$T/elf" >/dev/null; rc "arm class64 отвергнут" $? 1
 printf 'not an elf at all, just text here' >"$T/elf"; _arch_from_elf "$T/elf" >/dev/null; rc "elf garbage" $? 1
 printf 'ab' >"$T/elf"; _arch_from_elf "$T/elf" >/dev/null; rc "elf short" $? 1
 # detect_arch: приоритеты
@@ -185,6 +191,8 @@ check_dns_conflicts; rc "dnsmasq-full plain" $? 1; eq "dnsmasq-full plain list" 
 MOCK_UCI_OUT="dhcp.cfg01.nftset='/example.com/4#inet#fw4#vpn_domains'"
 check_dns_conflicts; eq "dnsmasq-full custom" "$DNS_CONFLICTS" "dnsmasq-full"
 MOCK_INSTALLED=""; MOCK_UCI_OUT=""; check_dns_conflicts; rc "dns none" $? 1
+PKG_MGR=""; check_dns_conflicts 2>/dev/null; rc "dns без PKG_MGR -> 2 (не 'нет конфликтов')" $? 2
+PKG_MGR=opkg
 
 # ================= пакетный слой =================
 for MGR in opkg apk; do
@@ -213,8 +221,15 @@ pkg_unhold tailscale; rc "opkg unhold" $? 0; has "opkg unhold call" "opkg flag u
 PKG_MGR=apk; setpath apk; MOCK_INSTALLED="tailscale"; reset_log
 pkg_hold tailscale; rc "apk hold" $? 0
 has "apk hold pin" "apk add tailscale=1.2.3-r0"; has "apk hold sim" "apk upgrade --simulate"
-reset_log; MOCK_SIM_FAIL=1; pkg_hold tailscale 2>/dev/null; rc "apk hold sim fail" $? 1
+eq "apk hold baseline first" "$(grep -n 'upgrade --simulate' "$MOCK_LOG" | head -n 1 | cut -d: -f1)" "$(( $(grep -n 'add tailscale=1.2.3-r0' "$MOCK_LOG" | head -n 1 | cut -d: -f1) - 1 ))"
+rm -f "$MOCK_STATE"
+reset_log; MOCK_SIM_FAIL=pinned; pkg_hold tailscale 2>/dev/null; rc "apk hold: после пина упало -> откат" $? 1
 eq "apk hold reverted" "$(tail -n 1 "$MOCK_LOG")" "apk add tailscale"
+[ -f "$MOCK_STATE" ] && bad "пин снят после отката" || ok
+reset_log; MOCK_SIM_FAIL=always; pkg_hold tailscale 2>/dev/null; rc "apk hold: baseline уже плохой -> пин остаётся" $? 0
+[ -f "$MOCK_STATE" ] && ok || bad "пин сохранён при плохом baseline"
+grep -q 'verification skipped' "$LOG_FILE" && ok || bad "причина пропуска проверки записана в лог"
+rm -f "$MOCK_STATE"; MOCK_SIM_FAIL=""
 MOCK_SIM_FAIL=""; MOCK_INSTALLED=""; pkg_hold tailscale 2>/dev/null; rc "apk hold not installed" $? 1
 MOCK_INSTALLED="tailscale"; reset_log
 pkg_unhold tailscale; rc "apk unhold" $? 0; has "apk unhold call" "apk add tailscale"
@@ -257,6 +272,11 @@ grep -q "$URL" "$T/out" && grep -q "$KURL_U" "$T/out" && ok || bad "подтве
 grep -Fxq "feed_remove 'gnu'" "$ROLLBACK_FILE" && ok || bad "запись отката feed_remove"
 reset_log; feed_add gnu "$URL" "$KURL_U" >/dev/null 2>&1; rc "opkg add idempotent" $? 0
 [ -s "$MOCK_LOG" ] && bad "повторное добавление не должно ходить в сеть/менеджер" || ok
+MOCK_UPDATE_FAIL=1; feed_remove gnu >/dev/null 2>"$T/err"; rc "opkg remove при сбое update -> 0" $? 0
+[ -s "$T/err" ] && ok || bad "remove: предупреждение о сбое обновления списков"
+grep -q tsi_gnu "$OPKG_FEEDS" && bad "remove при сбое update: запись удалена" || ok
+MOCK_UPDATE_FAIL=""
+printf 'y\n' >"$TTY_DEV"; feed_add gnu "$URL" "$KURL_U" >/dev/null 2>&1
 feed_remove gnu >/dev/null 2>&1; rc "opkg remove" $? 0
 grep -q tsi_gnu "$OPKG_FEEDS" && bad "opkg feed line removed" || ok
 [ -f "$OPKG_KEYDIR/0123456789abcdef" ] && bad "opkg key removed" || ok
@@ -278,7 +298,10 @@ fresh; printf 'y\n' >"$TTY_DEV"; feed_add gnu "$URL" https://example.org/key/big
 fresh; printf 'y\n' >"$TTY_DEV"; feed_add gnu "$URL" https://example.org/key/missing.pub >/dev/null 2>&1; rc "fetch fail" $? 1
 fresh; printf 'y\n' >"$TTY_DEV"; feed_add gnu "$URL" https://example.org/key/pem.pub >/dev/null 2>&1; rc "opkg rejects pem key" $? 1
 fresh; printf 'y\n' >"$TTY_DEV"; feed_add gnu "$URL" https://example.org/key/usign_crlf.pub >/dev/null 2>&1; rc "crlf key accepted" $? 0
-fresh; feed_add gnu http://example.org/feed "$KURL_U" >/dev/null 2>&1; rc "http url rejected" $? 1
+fresh; feed_add gnu http://example.org/feed "$KURL_U" >/dev/null 2>"$T/err"; rc "http url rejected" $? 1
+grep -q 'http://example.org/feed' "$T/err" && ok || bad "сообщение называет недопустимый адрес"
+fresh; feed_add gnu "$URL" 'https://example.org/key?x=1' >/dev/null 2>"$T/err"; rc "key url with ? rejected" $? 1
+grep -q 'x=1' "$T/err" && ok || bad "сообщение называет недопустимый адрес ключа"
 fresh; feed_add Gnu "$URL" "$KURL_U" >/dev/null 2>&1; rc "bad name rejected" $? 1
 fresh; feed_add gnu 'https://x.y/$(id)' "$KURL_U" >/dev/null 2>&1; rc "url injection rejected" $? 1
 fresh; printf 'y\n' >"$TTY_DEV"; MOCK_UPDATE_FAIL=1
@@ -290,6 +313,22 @@ MOCK_UPDATE_FAIL=""
 setpath opkg nousign; fresh; printf 'y\n' >"$TTY_DEV"
 feed_add gnu "$URL" "$KURL_U" >/dev/null 2>&1; rc "no usign" $? 1
 [ -e "$OPKG_FEEDS" ] && bad "no usign: фид не добавлен" || ok
+
+# --- пин sha256 ключа
+setpath opkg
+USIGN_FP=$(fp "$FIX/usign.pub"); BADPIN=$(printf '%064d' 0)
+fresh; NONINTERACTIVE=1; feed_add gnu "$URL" "$KURL_U" "$USIGN_FP" >/dev/null 2>&1; rc "pin: неинтерактивно, совпал" $? 0
+grep -Fxq 'src/gz tsi_gnu https://example.org/feed' "$OPKG_FEEDS" && ok || bad "pin: фид добавлен без вопроса"
+fresh; NONINTERACTIVE=1; feed_add gnu "$URL" "$KURL_U" "$BADPIN" >/dev/null 2>"$T/err"; rc "pin: неинтерактивно, не совпал -> 1" $? 1
+[ -e "$OPKG_FEEDS" ] && bad "pin: не совпал, фид не добавлен" || ok; [ -d "$OPKG_KEYDIR" ] && bad "pin: не совпал, ключ не импортирован" || ok
+grep -q "$USIGN_FP" "$T/err" && ok || bad "pin: сообщение называет фактический хэш"
+fresh; NONINTERACTIVE=1; feed_add gnu "$URL" "$KURL_U" "ABC" >/dev/null 2>&1; rc "pin: неверный формат -> 1" $? 1
+fresh; NONINTERACTIVE=1; feed_add gnu "$URL" "$KURL_U" >/dev/null 2>&1; rc "pin: без пина неинтерактивно -> 2" $? 2
+fresh; NONINTERACTIVE=1; feed_add gnu "$URL" https://example.org/key/garbage.pub "$USIGN_FP" >/dev/null 2>&1; rc "pin: невалидный ключ с пином -> 1" $? 1
+fresh; printf 'n\n' >"$TTY_DEV"; feed_add gnu "$URL" "$KURL_U" "$USIGN_FP" >/dev/null 2>&1; rc "pin: интерактивно совпал, но подтверждение остаётся -> 2" $? 2
+fresh; printf 'y\n' >"$TTY_DEV"; feed_add gnu "$URL" "$KURL_U" "$BADPIN" >/dev/null 2>"$T/err"; rc "pin: интерактивно, не совпал, подтверждено" $? 0; [ -s "$T/err" ] && ok || bad "pin: интерактивное предупреждение"
+fresh; printf 'n\n' >"$TTY_DEV"; feed_add gnu "$URL" "$KURL_U" "$BADPIN" >/dev/null 2>&1; rc "pin: интерактивно, не совпал, отказ -> 2" $? 2
+NONINTERACTIVE=0
 
 # --- apk
 PKG_MGR=apk; setpath apk
