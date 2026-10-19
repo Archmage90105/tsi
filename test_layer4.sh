@@ -149,7 +149,11 @@ grep -q 'wget -O /tmp/tsi.sh https://example.org/tsi.sh && sh /tmp/tsi.sh' "$T/o
 grep -q 'ОШИБКА' "$T/o" && grep -q 'ERROR' "$T/o" && ok || bad "self: подсказка двуязычная"
 [ -e "$T/bin2" ] && bad "self: при пайпе ничего не копируется" || ok
 mkdrv '' "$T/bin3/tsi"; cat "$T/drv.sh" | $SH_UNDER_TEST >"$T/o" 2>&1
-grep -q '<URL>' "$T/o" && ok || bad "self: плейсхолдер даёт общую подсказку"
+if [ "$TSI_URL" = "__PLACEHOLDER__" ]; then
+    grep -q '<URL>' "$T/o" && ok || bad "self: плейсхолдер даёт общую подсказку"
+else
+    grep -qF "$TSI_URL" "$T/o" && ok || bad "self: подсказка содержит TSI_URL"
+fi
 mkdrv '' "/proc/нет-такого/tsi"; $SH_UNDER_TEST "$T/drv.sh" >"$T/o" 2>"$T/e"
 eq "self: нет записи -> rc 0" "$(tail -n 1 "$T/o")" "rc=0"; [ -s "$T/e" ] && ok || bad "self: предупреждение при отсутствии записи"
 
