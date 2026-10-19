@@ -2,6 +2,7 @@
 # Тесты слоя 7: обновление, LuCI, удаление. Моки opkg/apk со состоянием.
 # Запуск: sh test_layer7.sh
 HERE=$(cd "$(dirname "$0")" && pwd)
+TSI_NO_MAIN=1
 . "$HERE/tsi.sh"
 GTAR=/usr/bin/tar
 

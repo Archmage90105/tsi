@@ -1,6 +1,7 @@
 #!/bin/sh
 # Тесты слоя 1. Запуск: sh test_layer1.sh   (также: bash --posix, busybox ash)
 HERE=$(cd "$(dirname "$0")" && pwd)
+TSI_NO_MAIN=1
 . "$HERE/tsi.sh"
 
 T=$(mktemp -d /tmp/tsi-test.XXXXXX)

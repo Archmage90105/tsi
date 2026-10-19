@@ -2,6 +2,7 @@
 # Тесты слоя 4 (установка) на моках.
 # Запуск: sh test_layer4.sh   (TSI_TEST_SH="busybox ash" - чем запускать драйверы)
 HERE=$(cd "$(dirname "$0")" && pwd)
+TSI_NO_MAIN=1
 . "$HERE/tsi.sh"
 SH_UNDER_TEST=${TSI_TEST_SH:-sh}
 GTAR=/usr/bin/tar

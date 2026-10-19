@@ -2,6 +2,7 @@
 # Тесты слоя 6: решение по netfilter, login-server, проверка подсетей,
 # tailscale up, инструкции. Запуск: sh test_layer6.sh
 HERE=$(cd "$(dirname "$0")" && pwd)
+TSI_NO_MAIN=1
 . "$HERE/tsi.sh"
 
 T=$(mktemp -d /tmp/tsi-test6.XXXXXX)

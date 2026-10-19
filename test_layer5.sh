@@ -2,6 +2,7 @@
 # Тесты слоя 5 (сеть и firewall через uci) на эмуляторе uci с рабочей и
 # закоммиченной копиями конфигов. Запуск: sh test_layer5.sh
 HERE=$(cd "$(dirname "$0")" && pwd)
+TSI_NO_MAIN=1
 . "$HERE/tsi.sh"
 
 T=$(mktemp -d /tmp/tsi-test5.XXXXXX)
