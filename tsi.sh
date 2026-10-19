@@ -1826,7 +1826,7 @@ LITE_KEY_URL_APK="${LITE_RAW_BASE}/key-build.rsa.pub"
 LITE_KEY_SHA256_OPKG="f5ca65c0fa07c24bd5f6b003ccf928cd9e98f33acf8f9474d535a7c4752c1f80"
 LITE_KEY_SHA256_APK="83dae13616cd902b79a84ede91417952a59d9c35e2cd216b05b3ea45eba83dd5"
 # Плейсхолдер: подставить реальный URL публикации скрипта.
-TSI_URL="_https://raw.githubusercontent.com/Archmage90105/tsi/refs/tags/v0.7.0/tsi.sh
+TSI_URL="https://raw.githubusercontent.com/Archmage90105/tsi/refs/tags/v0.7.0/tsi.sh"
 SELF_DEST="/usr/bin/tsi"
 INIT_SCRIPT="/etc/init.d/tailscale"
 SYSUPGRADE_BASE_PATHS="/usr/bin/tsi /etc/tailscale-installer.conf /etc/tailscale-installer.feeds /etc/config/tailscale /etc/tailscale/ /var/lib/tailscale/"
