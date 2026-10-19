@@ -105,10 +105,11 @@ setpath() { PATH="$T/m_$1:$T/tools:$T/usignbin:$BASEPATH"; }
 
 # ---------- фикстуры ----------
 A53=$(printf 'A%.0s' $(seq 1 53))
-LB="$FIX/tokisaki-galaxy.github.io/luci-app-tailscale-community/all"; mkdir -p "$LB"
+LB="$FIX/tokisaki-galaxy.github.io/luci-app-tailscale-community/all"
+LB_RAW="$FIX/raw.githubusercontent.com/Tokisaki-Galaxy/luci-app-tailscale-community/refs/heads/gh-pages/all"
+mkdir -p "$LB" "$LB_RAW"
 printf 'untrusted comment: usign public key\nRWQ%s' "$A53" >"$LB/key-build.pub"
 printf -- '-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE\n-----END PUBLIC KEY-----\n' >"$LB/public-key.pem"
-# NEW: копии по raw-пути, там их ждёт код
 cp "$LB/key-build.pub"  "$LB_RAW/key-build.pub"
 cp "$LB/public-key.pem" "$LB_RAW/public-key.pem"
 RB="$FIX/raw.githubusercontent.com/gunanovo/openwrt-tailscale/refs/heads/feed/mipsel_24kc"; mkdir -p "$RB"
@@ -131,6 +132,8 @@ fresh() { # PKGMGR
     reset_log; rollback_init; conf_reset; feed
     MOCK_AVAILABLE=""; MOCK_AVAILABLE_AFTER_FEED=""; MOCK_MAINT="GuNan <x@y.z>"; MOCK_UPDATE_FAIL=""; MOCK_INSTALL_FAIL=""
     MOCK_UPGRADE_FAIL=""; MOCK_UPGRADE_TO=""; MOCK_REMOVE_FAIL=""; MOCK_FLAG_FAIL=""; MOCK_INIT_FAIL=""
+    LUCI_KEY_SHA256_OPKG=""   # <-- NEW
+    LUCI_KEY_SHA256_APK=""    # <-- NEW
     if [ "$1" = opkg ]; then MOCK_FEEDS_FILE="$OPKG_FEEDS"; else MOCK_FEEDS_FILE="$APK_FEEDS"; fi
     NONINTERACTIVE=0; REL_MAJOR=24.10; [ "$1" = apk ] && REL_MAJOR=25.12
     MOCK_ARCH_LINES=""; printf 'mipsel_24kc\n' >"$APK_ARCH_FILE"
@@ -231,7 +234,7 @@ has "luci: install после фида" "opkg install $LUCI"; feed_exists luci &
 fresh opkg; inst luci-base 1.0-1; MOCK_AVAILABLE_AFTER_FEED="$LUCI"; feed n; install_luci >"$T/o" 2>&1; rc "luci: фид отклонён" $? 0
 nocall "luci: отклонён без install" "opkg install"; [ -e "$OPKG_FEEDS" ] && bad "luci: отклонён, фид не добавлен" || ok
 fresh opkg; inst luci-base 1.0-1; MOCK_AVAILABLE_AFTER_FEED="$LUCI"; NONINTERACTIVE=1; install_luci >/dev/null 2>&1; rc "luci: неинтерактивно, фид пропущен" $? 0; nocall "luci: неинтерактивно без install" "opkg install"
-fresh opkg; inst luci-base 1.0-1; MOCK_AVAILABLE_AFTER_FEED="$LUCI"; mv "$LB/key-build.pub" "$T/kb"; feed y; install_luci >/dev/null 2>&1; rc "luci: ключ не скачался" $? 1; mv "$T/kb" "$LB/key-build.pub"
+fresh opkg; inst luci-base 1.0-1; MOCK_AVAILABLE_AFTER_FEED="$LUCI"; mv "$LB_RAW/key-build.pub" "$T/kb"; feed y; install_luci >/dev/null 2>&1; rc "luci: ключ не скачался" $? 1; mv "$T/kb" "$LB_RAW/key-build.pub"
 fresh opkg; inst luci-base 1.0-1; feed y; install_luci >"$T/o" 2>&1; rc "luci: после фида пакета всё равно нет" $? 0; nocall "luci: нет пакета без install" "opkg install $LUCI"
 grep -q 'недоступен' "$T/o" && ok || bad "luci: справка о недоступности"
 fresh opkg; inst luci-base 1.0-1; MOCK_AVAILABLE="$LUCI"; MOCK_INSTALL_FAIL=1; install_luci >/dev/null 2>&1; rc "luci: сбой install" $? 1

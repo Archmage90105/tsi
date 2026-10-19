@@ -88,6 +88,11 @@ fresh() { # чистое состояние окружения
     MOCK_INSTALLED=""; MOCK_AVAILABLE=""; MOCK_MAINT=""; MOCK_UPDATE_FAIL=""; MOCK_INSTALL_FAIL=""; MOCK_INIT_FAIL=""
     MOCK_ARCH_LINES='arch all 1\narch noarch 1\narch mipsel_24kc 10'
     NONINTERACTIVE=0; : >"$TTY_DEV"; conf_reset
+    # отключаем боевые пины: пиннинг фидов покрыт отдельными тестами,
+    # а здесь проверяется логика поверх пакетных операций
+    LITE_KEY_SHA256_OPKG=""
+    LITE_KEY_SHA256_APK=""
+    NONINTERACTIVE=0; : >"$TTY_DEV"; conf_reset
 }
 
 # ---------- фикстуры ----------
